@@ -21,10 +21,9 @@ C
 C
         DIMENSION X(52), Y(2,50), LITERL(2)
         DOUBLE PRECISION S1,S2,S3,S4,S5,T,S,B,D,R,E1,E2,BBAR
+        DATA Y/1,2/
         INTEGER N
-
-        WRITE(6,*) IA, IB
-
+        
         WRITE (5,10)
  10     FORMAT('0',1X,'*   *   *  LINEAR REGRESSION ANALYSIS  *   *   *',//)
         WRITE (5,20)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -58,12 +57,19 @@ func removeString(text []string, s int) []string {
 
 //ФУНКЦИИ ДЛЯ ЗАМЕН
 
+var arrNames []string
+
 //done
-func replaceComments(text *[]string) {
+func replaceComments(text *[]string, showComments bool) {
 	for i := 0; i < len(*text); i++ {
 		var comment = regexp.MustCompile(`^C`)
 		if comment.MatchString((*text)[i]) {
-			(*text)[i] = comment.ReplaceAllString((*text)[i], `// `)
+			if showComments {
+				(*text)[i] = comment.ReplaceAllString((*text)[i], `// `)
+			} else {
+				(*text) = removeString((*text), i)
+				i--
+			}
 		}
 	}
 }
@@ -77,7 +83,7 @@ func replaceRead(text *[]string) {
 
 		if read.MatchString((*text)[i]) {
 			if params["LABEL"] != "*" {
-				readFormatLabel(text, params["LABEL"])
+				readFormatLabel(text, params["LABEL"], false)
 			}
 
 			arguments := regexp.MustCompile(`(?:\w* *\((?:\w*|\,| )+\))|\w+`).FindAllString(params["VARS"], -1)
@@ -104,7 +110,7 @@ func replaceWrite(text *[]string) {
 				(*text)[i] = `printf("` + buildFormatString(arguments, true) + ");"
 			} else {
 				formatString := ""
-				formatString = writeFormatLabel(text, params["LABEL"])
+				formatString = writeFormatLabel(text, params["LABEL"], false)
 
 				formatString = regexp.MustCompile(`(?:,|)\d{1,2}H`).ReplaceAllString(formatString, "")
 				formatString = regexp.MustCompile(`(?:,|)\d{1,2}X,`).ReplaceAllString(formatString, "")
@@ -137,7 +143,7 @@ func replaceWrite(text *[]string) {
 				formatString = strings.ReplaceAll(formatString, "'", "")
 
 				arguments := regexp.MustCompile(`(?:\w* *\((?:\w*|\,| )+\))|\w+`).FindAllString(params["VARS"], -1)
-				fmt.Println(arguments)
+				//fmt.Println(arguments)
 				printfString := `printf("` + formatString
 				printfString += "\\n\""
 				for j := 0; j < len(arguments); j++ {
@@ -151,18 +157,27 @@ func replaceWrite(text *[]string) {
 	}
 }
 
+func replaceDimensions(text *[]string) {
+
+}
+
 //++-
-func readFormatLabel(text *[]string, label string) {
+func readFormatLabel(text *[]string, label string, showComments bool) {
 	labelFormat := regexp.MustCompile(`^.*` + label + ` `)
 	for i := 0; i < len(*text); i++ {
 		if labelFormat.MatchString((*text)[i]) {
-			(*text)[i] = "//" + (*text)[i]
+			if showComments {
+				(*text)[i] = "//" + (*text)[i]
+			} else {
+				(*text) = removeString((*text), i)
+				i--
+			}
 		}
 	}
 }
 
 //++-
-func writeFormatLabel(text *[]string, label string) string {
+func writeFormatLabel(text *[]string, label string, showComments bool) string {
 	labelFormat := regexp.MustCompile(`(?mUs)^\s*` + label + `\s*FORMAT\(.*\)`)
 	format := regexp.MustCompile(`FORMAT\(.*\)`)
 	//labelFormat := regexp.MustCompile(`(?mUs)` + label + ` FORMAT\(.*\)`)
@@ -170,7 +185,12 @@ func writeFormatLabel(text *[]string, label string) string {
 	for i := 0; i < len(*text); i++ {
 		if labelFormat.MatchString((*text)[i]) {
 			formatString = strings.Trim(format.FindString((*text)[i])[len(label)+7:], "()")
-			(*text)[i] = "//" + (*text)[i]
+			if showComments {
+				(*text)[i] = "//" + (*text)[i]
+			} else {
+				(*text) = removeString((*text), i)
+				i--
+			}
 		}
 	}
 	return formatString
@@ -248,7 +268,7 @@ func replaceDo(text *[]string) {
 	doStatement := regexp.MustCompile(`DO [^=].*`)
 	doLabel := regexp.MustCompile(`DO \d+`)
 	initNameRegex := regexp.MustCompile(`(?mU)\w{0,5}\s*=`)
-	integer := regexp.MustCompile(`(?mU)(?:I|J|K|L|M|N)\w{0,5}\s*=,`)
+	integer := regexp.MustCompile(`(?mU)(?:I|J|K|L|M|N)\w{0,5}\s*=`)
 
 	for i := 0; i < len(*text); i++ {
 		if doStatement.MatchString((*text)[i]) {
@@ -257,8 +277,9 @@ func replaceDo(text *[]string) {
 			changeDoLabel(text, label)
 
 			var initValue, optionalIncrement string
-
+			//fmt.Println(integer.MatchString((*text)[i]), (*text)[i])
 			if integer.MatchString((*text)[i]) {
+
 				initValue = "int "
 			} else {
 				initValue = "double "
@@ -282,12 +303,19 @@ func replaceDo(text *[]string) {
 
 //+-
 func replaceStop(text *[]string) {
-	stop := regexp.MustCompile(`STOP`)
+	stop := regexp.MustCompile(`STOP(\s|)(?P<ARG>\d+|)`)
 	end := regexp.MustCompile(`END`)
 	goTo := regexp.MustCompile(`^\s+GOTO\s*`)
 	for i := 0; i < len(*text); i++ {
 		if stop.MatchString((*text)[i]) {
-			(*text)[i] = stop.ReplaceAllString((*text)[i], "return")
+			params := getParams(stop.String(), (*text)[i])
+			(*text)[i] = stop.ReplaceAllString((*text)[i], "return ")
+			if params["ARG"] == "" {
+				(*text)[i] += "0"
+			} else {
+				(*text)[i] += params["ARG"]
+			}
+
 		} else if end.MatchString((*text)[i]) {
 			(*text)[i] = strings.TrimLeft(end.ReplaceAllString((*text)[i], "}"), " ")
 		} else if goTo.MatchString((*text)[i]) {
@@ -303,6 +331,8 @@ func parseVariables(text *[]string) {
 	integer := regexp.MustCompile(`^\s*INTEGER`)
 	double := regexp.MustCompile(`^\s*DOUBLE PRECISION`)
 	float := regexp.MustCompile(`^\s*REAL`)
+	arr := regexp.MustCompile(`^\s*DIMENSION *(?P<VARS>(?:\w*|\,| |\(|\)|\')*)`)
+	arrNamesRegex := regexp.MustCompile(`(?P<NAME>\w*)\((?:\w|\,)*\)`)
 	//complex := regexp.MustCompile(`^\s*DOUBLE PRECISION`)
 	for i := 0; i < len(*text); i++ {
 		if integer.MatchString((*text)[i]) {
@@ -311,6 +341,34 @@ func parseVariables(text *[]string) {
 			(*text)[i] = double.ReplaceAllString((*text)[i], "double")
 		} else if float.MatchString((*text)[i]) {
 			(*text)[i] = double.ReplaceAllString((*text)[i], "float")
+		} else if arr.MatchString((*text)[i]) {
+			params := getParams(arr.String(), (*text)[i])
+
+			for _, val := range arrNamesRegex.FindAllString((*text)[i], -1) {
+				arrNames = append(arrNames, getParams(arrNamesRegex.String(), val)["NAME"])
+			}
+
+			arguments := regexp.MustCompile(`(?:\w* *\((?:\w*|\,| )+\))|\w+`).FindAllString(params["VARS"], -1)
+			(*text)[i] = "float "
+			for index, val := range arguments {
+				initName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(val, ",", "]["), ")", "]"), "(", "[")
+				(*text)[i] += initName + ", "
+
+				replaceDimensionByName(text, arrNames[index])
+			}
+			(*text)[i] = (*text)[i][:len((*text)[i])-2] + ";"
+		}
+	}
+}
+
+func replaceDimensionByName(text *[]string, arrName string) {
+	dimensionRegex := regexp.MustCompile(arrName + `\((?:\w|\,)*\)`)
+	for i := 0; i < len(*text); i++ {
+		if dimensionRegex.MatchString((*text)[i]) {
+			//(*text)[i] = strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(dimensionRegex.FindString((*text)[i]), ",", "]["), ")", "]"), "(", "[")
+			newName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(dimensionRegex.FindString((*text)[i]), ",", " - 1]["), ")", " - 1]"), "(", "[")
+			(*text)[i] = dimensionRegex.ReplaceAllString((*text)[i], newName)
+			//fmt.Println(newName, "----", dimensionRegex.ReplaceAllString((*text)[i], newName))
 		}
 	}
 }
@@ -331,13 +389,32 @@ func checkSemicolons(text *[]string) {
 //-
 func replaceMathFunctions(text *[]string) {
 	sqrt := regexp.MustCompile(`(?:D|C|)SQRT`)
+	abs := regexp.MustCompile(`(?:D|C|)ABS`)
 	sqr := regexp.MustCompile(`\*\*`)
 	for i := 0; i < len(*text); i++ {
 		if sqrt.MatchString((*text)[i]) {
 			(*text)[i] = sqrt.ReplaceAllString((*text)[i], "sqrt")
 		}
+		if abs.MatchString((*text)[i]) {
+			(*text)[i] = abs.ReplaceAllString((*text)[i], "abs")
+		}
 		if sqr.MatchString((*text)[i]) {
 			(*text)[i] = sqr.ReplaceAllString((*text)[i], "^")
+		}
+	}
+}
+
+func beautify(text *[]string) {
+	var offset string
+	for i := 0; i < len(*text); i++ {
+		if len((*text)[i]) != 0 {
+			if (*text)[i][len((*text)[i])-1] == '}' {
+				offset = offset[:len(offset)-1]
+			}
+			(*text)[i] = offset + (*text)[i]
+			if (*text)[i][len((*text)[i])-1] == '{' {
+				offset += "\t"
+			}
 		}
 	}
 }
@@ -361,9 +438,9 @@ func main() {
 	datawriter := bufio.NewWriter(fileWrite)
 
 	var textC []string
-	textC = append(textC, "#include <stdio.h>\n#include <math.h>\n ", "int main() {\n")
+	textC = append(textC, "#include <stdio.h>\n#include <math.h>\n ", "int main() {")
 
-	replaceComments(&text)
+	replaceComments(&text, false)
 	replaceStop(&text)
 
 	replaceIf(&text)
@@ -379,6 +456,7 @@ func main() {
 
 	textC = append(textC, text...)
 
+	beautify(&textC)
 	for _, data := range textC {
 		_, _ = datawriter.WriteString(data + "\n")
 	}

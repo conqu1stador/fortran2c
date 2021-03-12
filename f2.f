@@ -12,11 +12,5 @@ C INTEGER VARIABLES START WITH I,J,K,L,M OR N
       AREA = SQRT( S * (S - IA) * (S - IB) * (S - IC) )
       WRITE(6,601) IA,IB,IC,AREA
   601 FORMAT(4H A= ,I5,5H  B= ,I5,5H  C= ,I5,8H  AREA= ,F10.2)
-      DO 701 D = 1,IB,0.5
-      WRITE(6,*) IA, IB
-  701 CONTINUE
-      DO 702 I=1,10
-      WRITE(6,*) 'TEST2'
-  702 CONTINUE
   703 STOP
       END
