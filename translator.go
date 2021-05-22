@@ -304,7 +304,7 @@ func replaceDo(text *[]string) {
 //+-
 func replaceStop(text *[]string) {
 	stop := regexp.MustCompile(`STOP(\s|)(?P<ARG>\d+|)`)
-	end := regexp.MustCompile(`END`)
+	end := regexp.MustCompile(`^\s*END`)
 	goTo := regexp.MustCompile(`^\s+GOTO\s*`)
 	for i := 0; i < len(*text); i++ {
 		if stop.MatchString((*text)[i]) {
@@ -420,7 +420,7 @@ func beautify(text *[]string) {
 }
 
 func main() {
-	fileRead, err := os.Open("f.f")
+	fileRead, err := os.Open("f2.f")
 
 	check(err)
 	scanner := bufio.NewScanner(fileRead)
@@ -456,7 +456,7 @@ func main() {
 
 	textC = append(textC, text...)
 
-	beautify(&textC)
+	//beautify(&textC)
 	for _, data := range textC {
 		_, _ = datawriter.WriteString(data + "\n")
 	}

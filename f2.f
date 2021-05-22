@@ -14,3 +14,23 @@ C INTEGER VARIABLES START WITH I,J,K,L,M OR N
   601 FORMAT(4H A= ,I5,5H  B= ,I5,5H  C= ,I5,8H  AREA= ,F10.2)
   703 STOP
       END
+
+      SUBROUTINE PPRNT(P,N,ID)
+      DIMENSION P(ID,N)
+      IGO=1
+      NEND=0
+    1 NBEG=NEND+1
+      NEND=NEND+6
+      IF(NEND.LT.N) GO TO 3
+    2 NEND=N
+      IGO=2
+    3 WRITE(5,4)((K),K=NBEG,NEND)
+    4 FORMAT(1H0,10X,6(5X,I3,2X))
+      WRITE(5,5) 
+    5 FORMAT(1H )
+      DO 6 I=1,N
+    6 WRITE(5,7) I,(P(I,J),J=NBEG,NEND)   
+    7 FORMAT(1H ,I8,2X,6F10.5)
+      GOTO 1
+    8 RETURN
+      END
